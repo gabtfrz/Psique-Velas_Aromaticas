@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route } from 'react-router-dom'
 import BarraLateral from '@/componentes/layout/BarraLateral'
 import { ToastContainer } from '@/componentes/ui/Toast'
 import { useToast } from '@/hooks/useToast'
@@ -14,7 +14,7 @@ export default function App() {
   const { toasts, removerToast } = useToast()
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <div
         style={{
           display: 'flex',
@@ -43,6 +43,6 @@ export default function App() {
         </main>
       </div>
       <ToastContainer toasts={toasts} aoRemover={removerToast} />
-    </BrowserRouter>
+    </HashRouter>
   )
 }
