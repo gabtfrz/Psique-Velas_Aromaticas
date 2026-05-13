@@ -1,0 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=Sacramento&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --cor-argila:       #EAE4DA;
+  --cor-argila-card:  #F0EBE3;
+  --cor-argila-borda: #D4CCC4;
+  --cor-musgo:        #6B6B2A;
+  --cor-musgo-escuro: #555520;
+  --cor-texto:        #2C2C2A;
+  --cor-muted:        #B8AFA5;
+  --cor-perigo:       #8B4A3A;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: var(--cor-argila);
+  color: var(--cor-texto);
+  font-family: 'DM Sans', sans-serif;
+  line-height: 1.6;
+}
+
+:focus-visible {
+  outline: 2px solid var(--cor-musgo);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--cor-argila);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--cor-argila-borda);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--cor-muted);
+}
+
+::selection {
+  background: rgba(107, 107, 42, 0.2);
+}
