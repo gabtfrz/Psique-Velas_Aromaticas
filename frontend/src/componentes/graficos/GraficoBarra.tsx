@@ -1,65 +1,65 @@
-import { useState } from 'react'
-import { escalarValores } from '@/utils/svg'
-import { formatarMoeda } from '@/utils/formatadores'
+import { useState } from "react";
+import { escalarValores } from "@/utils/svg";
+import { formatarMoeda } from "@/utils/formatadores";
 
 interface PropsGraficoBarra {
-  dados: Array<{ rotulo: string; valor: number; cor?: string }>
-  altura?: number
+  dados: Array<{ rotulo: string; valor: number; cor?: string }>;
+  altura?: number;
 }
 
-const MARGEM = { topo: 30, direita: 20, baixo: 50, esquerda: 20 }
-const LARGURA_INTERNA = 600
-const COR_PADRAO = '#6B6B2A'
-const COR_HOVER = '#555520'
+const MARGEM = { topo: 30, direita: 20, baixo: 50, esquerda: 20 };
+const LARGURA_INTERNA = 600;
+const COR_PADRAO = "#6B6B2A";
+const COR_HOVER = "#555520";
 
 export function GraficoBarra({ dados, altura = 260 }: PropsGraficoBarra) {
-  const [barraHover, setBarraHover] = useState<number | null>(null)
+  const [barraHover, setBarraHover] = useState<number | null>(null);
 
   if (dados.length === 0) {
     return (
       <div
         style={{
           height: altura,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}
       >
-        <span style={{ color: 'var(--cor-muted)', fontSize: 14 }}>Sem dados para exibir</span>
+        <span style={{ color: "var(--cor-muted)", fontSize: 14 }}>
+          Sem dados para exibir
+        </span>
       </div>
-    )
+    );
   }
 
-  const alturaInterna = altura - MARGEM.topo - MARGEM.baixo
-  const larguraUtil = LARGURA_INTERNA - MARGEM.esquerda - MARGEM.direita
+  const alturaInterna = altura - MARGEM.topo - MARGEM.baixo;
+  const larguraUtil = LARGURA_INTERNA - MARGEM.esquerda - MARGEM.direita;
 
-  const valores = dados.map((d) => d.valor)
-  const escalados = escalarValores(valores, alturaInterna)
+  const valores = dados.map((d) => d.valor);
+  const escalados = escalarValores(valores, alturaInterna);
 
-  const totalBarras = dados.length
-  const larguraBarra = larguraUtil / totalBarras * 0.6
-  const passoX = larguraUtil / totalBarras
+  const totalBarras = dados.length;
+  const larguraBarra = (larguraUtil / totalBarras) * 0.6;
+  const passoX = larguraUtil / totalBarras;
 
   return (
     <svg
       viewBox={`0 0 ${LARGURA_INTERNA} ${altura}`}
-      style={{ width: '100%', height: altura, display: 'block' }}
+      style={{ width: "100%", height: altura, display: "block" }}
     >
       {dados.map((item, i) => {
-        const altBarra = escalados[i]
-        const x = MARGEM.esquerda + i * passoX + (passoX - larguraBarra) / 2
-        const y = MARGEM.topo + alturaInterna - altBarra
-        const cor = barraHover === i
-          ? COR_HOVER
-          : (item.cor ?? COR_PADRAO)
-        const centroX = x + larguraBarra / 2
+        const altBarra = escalados[i];
+        const x = MARGEM.esquerda + i * passoX + (passoX - larguraBarra) / 2;
+        const y = MARGEM.topo + alturaInterna - altBarra;
+        const cor = barraHover === i ? COR_HOVER : (item.cor ?? COR_PADRAO);
+        const centroX = x + larguraBarra / 2;
 
         return (
           <g
             key={i}
             onMouseEnter={() => setBarraHover(i)}
             onMouseLeave={() => setBarraHover(null)}
-            style={{ cursor: 'default' }}
+            style={{ cursor: "default" }}
           >
             {/* Barra */}
             <rect
@@ -69,7 +69,7 @@ export function GraficoBarra({ dados, altura = 260 }: PropsGraficoBarra) {
               height={altBarra}
               fill={cor}
               rx={3}
-              style={{ transition: 'fill 0.15s ease' }}
+              style={{ transition: "fill 0.15s ease" }}
             />
 
             {/* Label do valor acima */}
@@ -97,10 +97,10 @@ export function GraficoBarra({ dados, altura = 260 }: PropsGraficoBarra) {
               {item.rotulo}
             </text>
           </g>
-        )
+        );
       })}
     </svg>
-  )
+  );
 }
 
-export default GraficoBarra
+export default GraficoBarra;
