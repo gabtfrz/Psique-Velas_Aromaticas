@@ -55,8 +55,14 @@ build/
 *.sqlite
 *.sqlite3
 *.db
+
+# ===== Supabase CLI (consolidado do supabase/.gitignore) =====
+# Artefatos locais/temporários do CLI. As migrations (.sql) e o config.toml SÃO versionados.
 supabase/.branches/
 supabase/.temp/
+supabase/.env.keys
+supabase/.env.local
+supabase/.env.*.local
 
 # ===== Cache e logs =====
 .cache/
@@ -81,3 +87,7 @@ Thumbs.db
 *.sln
 *.sw?
 skills-lock.json
+/frontend/.env.example
+/frontend/SEGURANCA_FRONTEND.md
+/docs/planos/2026-07-04-reestruturacao-vendas.md
+/supabase/CONVENCOES_RLS.md

@@ -12,3 +12,5 @@ export const ESTOQUE_MINIMO_PADRAO = 5
 export const TEMPO_TOAST_MS = 3500
 export const ITENS_POR_PAGINA = 10
 export const DIAS_GRAFICO_LINHA = 30
+
+export * from './vendas'
