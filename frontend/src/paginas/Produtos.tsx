@@ -17,7 +17,7 @@ import type { Produto, OpcaoSelecao, CategoriaProduto } from '@/tipos'
 // ─── Linha da tabela ─────────────────────────────────────────────────────────
 
 interface LinhaProduto extends Record<string, unknown> {
-  id: string
+  id: number
   nome: string
   aroma: string
   gramagem: string
@@ -107,42 +107,55 @@ export default function Produtos() {
 
   // Duplicar produto
   const handleDuplicar = useCallback(
-    (id: string) => {
-      duplicarProduto(id)
-      exibirToast('Vela duplicada com sucesso!', 'sucesso')
+    async (id: number) => {
+      try {
+        await duplicarProduto(id)
+        exibirToast('Vela duplicada com sucesso!', 'sucesso')
+      } catch {
+        exibirToast('Não foi possível duplicar a vela.', 'erro')
+      }
     },
     [duplicarProduto, exibirToast]
   )
 
   // Desativar / ativar produto
   const handleDesativar = useCallback(
-    (produto: Produto) => {
-      desativarProduto(produto.id)
-      exibirToast(
-        produto.ativo ? 'Vela desativada.' : 'Vela reativada!',
-        'aviso'
-      )
+    async (produto: Produto) => {
+      try {
+        await desativarProduto(produto.id)
+        exibirToast(
+          produto.ativo ? 'Vela desativada.' : 'Vela reativada!',
+          'aviso'
+        )
+      } catch {
+        exibirToast('Não foi possível alterar o status da vela.', 'erro')
+      }
     },
     [desativarProduto, exibirToast]
   )
 
-  // Salvar produto (novo ou edição)
+  // Salvar produto (novo ou edição) — só fecha o modal e sinaliza sucesso após
+  // a persistência na Supabase resolver; em falha (rede/RLS), avisa e mantém o modal.
   const handleSalvar = useCallback(
-    (dados: EntradaProduto) => {
-      if (produtoEditando) {
-        editarProduto({
-          ...produtoEditando,
-          ...dados,
-        })
-        exibirToast('Vela atualizada com sucesso!', 'sucesso')
-      } else {
-        adicionarProduto({
-          ...dados,
-          ativo: true,
-        })
-        exibirToast('Nova vela cadastrada!', 'sucesso')
+    async (dados: EntradaProduto) => {
+      try {
+        if (produtoEditando) {
+          await editarProduto({
+            ...produtoEditando,
+            ...dados,
+          })
+          exibirToast('Vela atualizada com sucesso!', 'sucesso')
+        } else {
+          await adicionarProduto({
+            ...dados,
+            ativo: true,
+          })
+          exibirToast('Nova vela cadastrada!', 'sucesso')
+        }
+        fecharModal()
+      } catch {
+        exibirToast('Não foi possível salvar a vela. Tente novamente.', 'erro')
       }
-      fecharModal()
     },
     [produtoEditando, editarProduto, adicionarProduto, exibirToast, fecharModal]
   )
@@ -333,7 +346,7 @@ export default function Produtos() {
 interface PropsAcoesLinha {
   produto: Produto
   onEditar: (produto: Produto) => void
-  onDuplicar: (id: string) => void
+  onDuplicar: (id: number) => void
   onDesativar: (produto: Produto) => void
 }
 

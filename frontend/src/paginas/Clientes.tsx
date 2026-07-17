@@ -19,7 +19,7 @@ import type { Cliente, Venda } from '@/tipos'
 // Tipos de linha da tabela principal
 // ---------------------------------------------------------------------------
 interface LinhaCliente extends Record<string, unknown> {
-  id: string
+  id: number
   nomeCompleto: string
   whatsapp: string
   email: string
@@ -35,7 +35,7 @@ interface LinhaCliente extends Record<string, unknown> {
 // Tipos de linha da tabela de pedidos do detalhe
 // ---------------------------------------------------------------------------
 interface LinhaPedido extends Record<string, unknown> {
-  id: string
+  id: number
   numeroPedido: string
   data: string
   canal: string
@@ -55,15 +55,15 @@ const rotuloCanal: Record<string, string> = {
   outro: 'Outro',
 }
 
-function vendasDoCliente(vendas: Venda[], clienteId: string): Venda[] {
+function vendasDoCliente(vendas: Venda[], clienteId: number): Venda[] {
   return vendas.filter((v) => v.clienteId === clienteId)
 }
 
-function totalGastoCliente(vendas: Venda[], clienteId: string): number {
+function totalGastoCliente(vendas: Venda[], clienteId: number): number {
   return vendasDoCliente(vendas, clienteId).reduce((acc, v) => acc + v.total, 0)
 }
 
-function ultimaCompraCliente(vendas: Venda[], clienteId: string): string {
+function ultimaCompraCliente(vendas: Venda[], clienteId: number): string {
   const compras = vendasDoCliente(vendas, clienteId)
   if (compras.length === 0) return '—'
   const mais = compras.reduce((a, b) =>
@@ -152,26 +152,30 @@ export default function Clientes() {
   }, [])
 
   const handleSalvarCliente = useCallback(
-    (dados: EntradaCliente) => {
-      if (clienteEditando) {
-        editarCliente({
-          ...clienteEditando,
-          ...dados,
-          dataNascimento: dados.dataNascimento
-            ? new Date(dados.dataNascimento)
-            : undefined,
-        })
-        exibirToast('Cliente atualizado com sucesso.', 'sucesso')
-      } else {
-        adicionarCliente({
-          ...dados,
-          dataNascimento: dados.dataNascimento
-            ? new Date(dados.dataNascimento)
-            : undefined,
-        })
-        exibirToast('Cliente cadastrado com sucesso.', 'sucesso')
+    async (dados: EntradaCliente) => {
+      try {
+        if (clienteEditando) {
+          await editarCliente({
+            ...clienteEditando,
+            ...dados,
+            dataNascimento: dados.dataNascimento
+              ? new Date(dados.dataNascimento)
+              : undefined,
+          })
+          exibirToast('Cliente atualizado com sucesso.', 'sucesso')
+        } else {
+          await adicionarCliente({
+            ...dados,
+            dataNascimento: dados.dataNascimento
+              ? new Date(dados.dataNascimento)
+              : undefined,
+          })
+          exibirToast('Cliente cadastrado com sucesso.', 'sucesso')
+        }
+        fecharModal()
+      } catch {
+        exibirToast('Não foi possível salvar o cliente. Tente novamente.', 'erro')
       }
-      fecharModal()
     },
     [clienteEditando, adicionarCliente, editarCliente, exibirToast, fecharModal]
   )

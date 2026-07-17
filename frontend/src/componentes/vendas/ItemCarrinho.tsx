@@ -5,9 +5,9 @@ import type { ItemVenda } from '@/tipos'
 
 export interface PropsItemCarrinho {
   item: ItemVenda
-  aoAumentarQtd: (produtoId: string) => void
-  aoDiminuirQtd: (produtoId: string) => void
-  aoRemover: (produtoId: string) => void
+  aoAumentarQtd: (produtoId: number) => void
+  aoDiminuirQtd: (produtoId: number) => void
+  aoRemover: (produtoId: number) => void
 }
 
 export function ItemCarrinho({ item, aoAumentarQtd, aoDiminuirQtd, aoRemover }: PropsItemCarrinho) {

@@ -3,7 +3,7 @@ import type { StatusPagamento, StatusEntrega, Venda } from '@/tipos'
 // ─── Tipo de linha da tabela de histórico de vendas ───────────────────────────
 
 export interface LinhaHistorico extends Record<string, unknown> {
-  id: string
+  id: number
   data: string
   numeroPedido: string
   cliente: string

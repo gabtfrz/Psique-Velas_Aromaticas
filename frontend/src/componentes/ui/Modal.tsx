@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react'
 
-type LarguraModal = 'sm' | 'md' | 'lg' | 'xl'
+type LarguraModal = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl'
 
 interface ModalProps {
   aberto: boolean
@@ -15,6 +15,8 @@ const larguras: Record<LarguraModal, string> = {
   md: 'max-w-md',
   lg: 'max-w-lg',
   xl: 'max-w-xl',
+  '2xl': 'max-w-2xl',
+  '3xl': 'max-w-3xl',
 }
 
 const SELETORES_FOCAVEIS =

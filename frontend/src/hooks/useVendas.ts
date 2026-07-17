@@ -1,63 +1,104 @@
-import { useCallback, useMemo } from 'react'
-import { useArmazenamentoLocal } from './useArmazenamentoLocal'
-import { vendasMock } from '@/dados/dadosMock'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { supabase } from '@/servicos/supabase'
 import {
   calcularFaturamentoPeriodo,
   calcularTicketMedio,
   calcularTotalVenda,
 } from '@/utils/calculadores'
-import { gerarId, gerarNumeroPedido } from '@/utils/geradores'
-import { CHAVES_STORAGE } from '@/constantes'
+import { gerarNumeroPedido } from '@/utils/geradores'
+import { schemaVenda } from '@/utils/validadores'
+import { RPC_REGISTRAR_VENDA, TABELAS } from '@/constantes'
+import {
+  linhaParaVenda,
+  vendaParaPayloadRpc,
+  type LinhaVendaComItens,
+} from '@/servicos/mapeadores'
 import type { Venda, StatusEntrega, StatusPagamento, CanalVenda, FaturamentoDiario } from '@/tipos'
-import { useProdutos } from './useProdutos'
 
 type EntradaVenda = Omit<Venda, 'id' | 'numeroPedido' | 'total' | 'criadoEm'>
 
+// Colunas da tabela `vendas` com os itens (`itens_venda`) já aninhados via join.
+const SELECAO_VENDA_COM_ITENS = '*, itens_venda(*)'
+
+// Hook de domínio de vendas — lê o histórico da Supabase (com itens) e registra
+// novas vendas via a RPC transacional `registrar_venda`, que insere venda + itens
+// e baixa o estoque dos produtos atomicamente (sem baixa manual no cliente).
 export function useVendas() {
-  const [vendas, setVendas] = useArmazenamentoLocal<Venda[]>(
-    CHAVES_STORAGE.VENDAS,
-    vendasMock
-  )
-  const { editarProduto, buscarProdutoPorId } = useProdutos()
+  const [vendas, setVendas] = useState<Venda[]>([])
 
-  const registrarVenda = useCallback(
-    (entrada: EntradaVenda) => {
-      const total = calcularTotalVenda(entrada.itens, entrada.desconto)
-      const novaVenda: Venda = {
-        ...entrada,
-        id: gerarId(),
-        numeroPedido: gerarNumeroPedido(),
-        total,
-        criadoEm: new Date(),
-      }
-
-      entrada.itens.forEach((item) => {
-        const produto = buscarProdutoPorId(item.produtoId)
-        if (produto) {
-          editarProduto({
-            ...produto,
-            estoqueAtual: Math.max(0, produto.estoqueAtual - item.quantidade),
-          })
-        }
+  // Carrega o histórico de vendas (com itens) da Supabase na inicialização.
+  useEffect(() => {
+    let ativo = true
+    supabase
+      .from(TABELAS.VENDAS)
+      .select(SELECAO_VENDA_COM_ITENS)
+      .then(({ data, error }) => {
+        if (!ativo || error || !data) return
+        setVendas((data as LinhaVendaComItens[]).map(linhaParaVenda))
       })
+    return () => {
+      ativo = false
+    }
+  }, [])
 
-      setVendas([...vendas, novaVenda])
-      return novaVenda
-    },
-    [vendas, setVendas, buscarProdutoPorId, editarProduto]
-  )
+  const registrarVenda = useCallback(async (entrada: EntradaVenda) => {
+    schemaVenda.parse(entrada)
+    const total = calcularTotalVenda(entrada.itens, entrada.desconto)
+    const numeroPedido = gerarNumeroPedido()
+    const { p_venda, p_itens } = vendaParaPayloadRpc(
+      { ...entrada, numeroPedido },
+      total
+    )
+
+    const { data: novoId, error } = await supabase.rpc(RPC_REGISTRAR_VENDA, {
+      p_venda,
+      p_itens,
+    })
+
+    if (error || !novoId) {
+      throw error ?? new Error('Não foi possível registrar a venda: estoque insuficiente.')
+    }
+
+    const novaVenda: Venda = {
+      ...entrada,
+      id: novoId as number,
+      numeroPedido,
+      total,
+      criadoEm: new Date(),
+    }
+
+    setVendas((atuais) => [...atuais, novaVenda])
+    return novaVenda
+  }, [])
 
   const atualizarStatusVenda = useCallback(
-    (
-      id: string,
+    async (
+      id: number,
       atualizacoes: Partial<{
         statusEntrega: StatusEntrega
         statusPagamento: StatusPagamento
       }>
     ) => {
-      setVendas(vendas.map((v) => (v.id === id ? { ...v, ...atualizacoes } : v)))
+      const linhaAtualizacoes: Record<string, StatusEntrega | StatusPagamento> = {}
+      if (atualizacoes.statusEntrega) {
+        linhaAtualizacoes.status_entrega = atualizacoes.statusEntrega
+      }
+      if (atualizacoes.statusPagamento) {
+        linhaAtualizacoes.status_pagamento = atualizacoes.statusPagamento
+      }
+
+      const { error } = await supabase
+        .from(TABELAS.VENDAS)
+        .update(linhaAtualizacoes)
+        .eq('id', id)
+
+      if (error) {
+        throw error
+      }
+
+      setVendas((atuais) => atuais.map((v) => (v.id === id ? { ...v, ...atualizacoes } : v)))
     },
-    [vendas, setVendas]
+    []
   )
 
   const calcularFaturamentoPeriodoHook = useCallback(

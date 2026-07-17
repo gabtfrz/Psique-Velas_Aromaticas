@@ -9,7 +9,7 @@ export interface PropsModalStatus {
   aberto: boolean
   aoFechar: () => void
   venda: Venda | null
-  aoSalvar: (id: string, statusPagamento: StatusPagamento, statusEntrega: StatusEntrega) => void
+  aoSalvar: (id: number, statusPagamento: StatusPagamento, statusEntrega: StatusEntrega) => void
 }
 
 export function ModalEditarStatus({ aberto, aoFechar, venda, aoSalvar }: PropsModalStatus) {

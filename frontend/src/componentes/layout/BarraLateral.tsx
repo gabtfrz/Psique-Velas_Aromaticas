@@ -1,21 +1,26 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { Icone } from '@/componentes/ui/Icone'
 import type { NomeIcone } from '@/componentes/ui/Icone'
+import type { PapelGestora } from '@/tipos'
 
 interface ItemNavegacao {
   caminho: string
   rotulo: string
   icone: NomeIcone
+  // Papéis que enxergam este item. Ausente = visível para qualquer papel autenticado.
+  papeis?: PapelGestora[]
 }
 
 const itensNavegacao: ItemNavegacao[] = [
   { caminho: '/',              rotulo: 'Dashboard',    icone: 'dashboard'    },
   { caminho: '/produtos',      rotulo: 'Produtos',     icone: 'produto'      },
+  { caminho: '/insumos',       rotulo: 'Insumos',      icone: 'vela'         },
   { caminho: '/vendas',        rotulo: 'Vendas',       icone: 'venda'        },
   { caminho: '/clientes',      rotulo: 'Clientes',     icone: 'cliente'      },
   { caminho: '/precificacao',  rotulo: 'Precificação', icone: 'precificacao' },
   { caminho: '/relatorios',    rotulo: 'Relatórios',   icone: 'relatorio'    },
+  { caminho: '/usuarios',      rotulo: 'Usuários',     icone: 'usuario',     papeis: ['master'] },
   { caminho: '/configuracoes', rotulo: 'Configurações',icone: 'configuracao' },
 ]
 
@@ -105,7 +110,12 @@ function LogoBorboleta() {
   )
 }
 
-function ConteudoBarraLateral({ aoFechar }: { aoFechar?: () => void }) {
+interface PropsConteudoBarraLateral {
+  itens: ItemNavegacao[]
+  aoFechar?: () => void
+}
+
+function ConteudoBarraLateral({ itens, aoFechar }: PropsConteudoBarraLateral) {
   return (
     <div
       style={{
@@ -161,7 +171,7 @@ function ConteudoBarraLateral({ aoFechar }: { aoFechar?: () => void }) {
         style={{ flex: 1, padding: '12px 0', overflowY: 'auto' }}
         aria-label="Navegação principal"
       >
-        {itensNavegacao.map((item) => (
+        {itens.map((item) => (
           <NavLink
             key={item.caminho}
             to={item.caminho}
@@ -209,8 +219,19 @@ function ConteudoBarraLateral({ aoFechar }: { aoFechar?: () => void }) {
   )
 }
 
-export default function BarraLateral() {
+interface PropsBarraLateral {
+  // Papel da gestora logada — controla quais itens de navegação ficam visíveis
+  // (ex: "Usuários" só para master). `undefined` enquanto o perfil ainda carrega.
+  papel?: PapelGestora
+}
+
+export default function BarraLateral({ papel }: PropsBarraLateral) {
   const [menuAberto, setMenuAberto] = useState(false)
+
+  const itensVisiveis = useMemo(
+    () => itensNavegacao.filter((item) => !item.papeis || (papel && item.papeis.includes(papel))),
+    [papel]
+  )
 
   return (
     <>
@@ -220,7 +241,7 @@ export default function BarraLateral() {
         style={{ flexShrink: 0, height: '100vh' }}
         aria-label="Barra lateral"
       >
-        <ConteudoBarraLateral />
+        <ConteudoBarraLateral itens={itensVisiveis} />
       </aside>
 
       {/* Mobile: botão hamburger */}
@@ -286,7 +307,7 @@ export default function BarraLateral() {
               }}
               aria-label="Barra lateral"
             >
-              <ConteudoBarraLateral aoFechar={() => setMenuAberto(false)} />
+              <ConteudoBarraLateral itens={itensVisiveis} aoFechar={() => setMenuAberto(false)} />
             </aside>
           </>
         )}

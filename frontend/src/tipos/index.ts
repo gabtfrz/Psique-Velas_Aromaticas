@@ -24,8 +24,32 @@ export type CategoriaProduto =
   | 'uso-diario'
 export type ClassificacaoMargem = 'baixa' | 'media' | 'boa'
 
+export type UnidadeMedida = 'ml' | 'g' | 'un' | 'cm' | 'm'
+export type CategoriaInsumo = 'cera' | 'fragrancia' | 'pavio' | 'recipiente' | 'corante' | 'outro'
+
+export interface Insumo {
+  id: number
+  nome: string
+  categoria: CategoriaInsumo
+  unidadeMedida: UnidadeMedida
+  precoUnitario: number
+  fornecedor?: string
+  quantidadeEmbalagem?: number
+  precoEmbalagem?: number
+  criadoEm: Date
+  atualizadoEm: Date
+}
+
+export interface ItemReceita {
+  insumoId: number
+  nomeInsumo: string
+  unidadeMedida: UnidadeMedida
+  quantidade: number
+  subtotal: number
+}
+
 export interface Produto {
-  id: string
+  id: number
   nome: string
   intencao: string
   tipoCera: TipoCera
@@ -48,6 +72,8 @@ export interface Produto {
   descricaoCurta: string
   historiaVela: string
   ativo: boolean
+  percentualCustosExtras: number
+  receita: ItemReceita[]
   criadoEm: Date
   atualizadoEm: Date
 }
@@ -55,7 +81,7 @@ export interface Produto {
 export type CanalOrigem = 'instagram' | 'indicacao' | 'site' | 'feira' | 'whatsapp' | 'outro'
 
 export interface Cliente {
-  id: string
+  id: number
   nomeCompleto: string
   cpf?: string
   dataNascimento?: Date
@@ -79,7 +105,8 @@ export type TipoEntrega = 'retirada' | 'correios' | 'motoboy'
 export type StatusEntrega = 'aguardando' | 'em-producao' | 'enviado' | 'entregue'
 
 export interface ItemVenda {
-  produtoId: string
+  id?: number
+  produtoId: number
   nomeProduto: string
   quantidade: number
   precoUnitario: number
@@ -87,9 +114,9 @@ export interface ItemVenda {
 }
 
 export interface Venda {
-  id: string
+  id: number
   numeroPedido: string
-  clienteId?: string
+  clienteId?: number
   itens: ItemVenda[]
   desconto: number
   total: number
@@ -123,4 +150,17 @@ export interface ColunaTabela<T> {
   titulo: string
   ordenavel?: boolean
   renderizar?: (item: T) => React.ReactNode
+}
+
+export type PapelGestora = 'master' | 'gestora'
+
+export interface Gestora {
+  id: number
+  nome: string
+  papel: PapelGestora
+  email: string
+  telefone: string
+  cpf: string
+  deveTrocarSenha: boolean
+  criadoEm: Date
 }

@@ -42,7 +42,7 @@ function obterPadrao30Dias(): { inicio: string; fim: string } {
 // Tipos de linha da tabela de desempenho
 // ---------------------------------------------------------------------------
 interface LinhaDesempenho extends Record<string, unknown> {
-  id: string
+  id: number
   nome: string
   qtdVendida: number
   faturamento: number
@@ -84,7 +84,7 @@ export default function Relatorios() {
       ...base,
       ...produtos
         .filter((p) => p.ativo)
-        .map((p) => ({ valor: p.id, rotulo: p.nome })),
+        .map((p) => ({ valor: String(p.id), rotulo: p.nome })),
     ]
   }, [produtos])
 
@@ -101,7 +101,7 @@ export default function Relatorios() {
       if (inicio && data < inicio) return false
       if (fim && data > fim) return false
       if (canalFiltro && v.canalVenda !== canalFiltro) return false
-      if (produtoFiltro && !v.itens.some((i) => i.produtoId === produtoFiltro)) return false
+      if (produtoFiltro && !v.itens.some((i) => i.produtoId === Number(produtoFiltro))) return false
 
       return true
     })
@@ -153,7 +153,7 @@ export default function Relatorios() {
   // Dados para GraficoBarra — faturamento por produto
   // -------------------------------------------------------------------------
   const faturamentoPorProduto = useMemo<Array<{ rotulo: string; valor: number }>>(() => {
-    const mapa = new Map<string, { nome: string; valor: number }>()
+    const mapa = new Map<number, { nome: string; valor: number }>()
     for (const v of vendasFiltradas) {
       for (const item of v.itens) {
         const existente = mapa.get(item.produtoId)
@@ -199,7 +199,7 @@ export default function Relatorios() {
   // -------------------------------------------------------------------------
   const linhasDesempenho = useMemo<LinhaDesempenho[]>(() => {
     const mapa = new Map<
-      string,
+      number,
       { nome: string; qtd: number; fat: number; margens: number[] }
     >()
     for (const v of vendasFiltradas) {

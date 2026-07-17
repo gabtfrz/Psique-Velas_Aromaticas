@@ -7,6 +7,7 @@ CONTEXT.md
 SPEC.md
 CLAUDE_CODE_INSTRUCOES.md
 PLAN.md
+.impeccable/
 
 # ===== Segredos e variáveis de ambiente =====
 .env
@@ -50,6 +51,9 @@ build/
 .vite/
 *.tsbuildinfo
 *.local
+
+# ===== Cobertura de testes (Vitest) =====
+coverage/
 
 # ===== Banco de dados local =====
 *.sqlite

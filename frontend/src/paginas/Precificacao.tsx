@@ -7,6 +7,7 @@ import { ToastContainer } from '@/componentes/ui/Toast'
 import { Botao } from '@/componentes/ui/Botao'
 import { CampoMonetario } from '@/componentes/ui/CampoMonetario'
 import { Campo } from '@/componentes/ui/Campo'
+import { CampoSelecao } from '@/componentes/ui/CampoSelecao'
 import { Emblema } from '@/componentes/ui/Emblema'
 import { Icone } from '@/componentes/ui/Icone'
 import {
@@ -22,7 +23,7 @@ import type { Produto } from '@/tipos'
 // Tipos de linha da tabela
 // ---------------------------------------------------------------------------
 interface LinhaPrecificacao extends Record<string, unknown> {
-  id: string
+  id: number
   nome: string
   gramagem: string
   custo: number
@@ -36,12 +37,12 @@ interface LinhaPrecificacao extends Record<string, unknown> {
 // Componente de edição inline por linha
 // ---------------------------------------------------------------------------
 interface CelulaEdicaoPrecoProps {
-  produtoId: string
+  produtoId: number
   precoAtual: number
-  editandoId: string | null
+  editandoId: number | null
   precoEditando: number
-  aoIniciarEdicao: (id: string, preco: number) => void
-  aoConfirmar: (id: string) => void
+  aoIniciarEdicao: (id: number, preco: number) => void
+  aoConfirmar: (id: number) => void
   aoCancelar: () => void
   aoMudarPreco: (v: number) => void
 }
@@ -136,17 +137,18 @@ export default function Precificacao() {
   const { toasts, exibirToast, removerToast } = useToast()
 
   // Edição inline
-  const [editandoId, setEditandoId] = useState<string | null>(null)
+  const [editandoId, setEditandoId] = useState<number | null>(null)
   const [precoEditando, setPrecoEditando] = useState(0)
 
   // Modo edição em massa
   const [modoMassa, setModoMassa] = useState(false)
-  const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
+  const [selecionados, setSelecionados] = useState<Set<number>>(new Set())
   const [ajustePercentual, setAjustePercentual] = useState(0)
 
   // Simulador de preço
   const [custoSimulador, setCustoSimulador] = useState(0)
   const [margemSimulador, setMargemSimulador] = useState(60)
+  const [produtoSimuladorId, setProdutoSimuladorId] = useState('')
 
   // -------------------------------------------------------------------------
   // Dados da tabela
@@ -182,7 +184,7 @@ export default function Precificacao() {
   // -------------------------------------------------------------------------
   // Handlers — inline
   // -------------------------------------------------------------------------
-  const aoIniciarEdicao = useCallback((id: string, preco: number) => {
+  const aoIniciarEdicao = useCallback((id: number, preco: number) => {
     setEditandoId(id)
     setPrecoEditando(preco)
   }, [])
@@ -193,17 +195,21 @@ export default function Precificacao() {
   }, [])
 
   const aoConfirmarEdicao = useCallback(
-    (id: string) => {
+    async (id: number) => {
       const produto = produtosAtivos.find((p) => p.id === id)
       if (!produto) return
       if (precoEditando <= 0) {
         exibirToast('O preço precisa ser maior que zero.', 'erro')
         return
       }
-      editarProduto({ ...produto, precoVenda: precoEditando })
-      exibirToast(`Preço de "${produto.nome}" atualizado.`, 'sucesso')
-      setEditandoId(null)
-      setPrecoEditando(0)
+      try {
+        await editarProduto({ ...produto, precoVenda: precoEditando })
+        exibirToast(`Preço de "${produto.nome}" atualizado.`, 'sucesso')
+        setEditandoId(null)
+        setPrecoEditando(0)
+      } catch {
+        exibirToast('Não foi possível atualizar o preço.', 'erro')
+      }
     },
     [produtosAtivos, precoEditando, editarProduto, exibirToast]
   )
@@ -225,7 +231,7 @@ export default function Precificacao() {
     })
   }, [])
 
-  const toggleSelecionado = useCallback((id: string) => {
+  const toggleSelecionado = useCallback((id: number) => {
     setSelecionados((prev) => {
       const novo = new Set(prev)
       if (novo.has(id)) {
@@ -245,7 +251,7 @@ export default function Precificacao() {
     setSelecionados(new Set())
   }, [])
 
-  const aplicarAjusteMassa = useCallback(() => {
+  const aplicarAjusteMassa = useCallback(async () => {
     if (selecionados.size === 0) {
       exibirToast('Selecione ao menos um produto.', 'aviso')
       return
@@ -254,18 +260,32 @@ export default function Precificacao() {
       exibirToast('Informe um percentual de ajuste.', 'aviso')
       return
     }
-    for (const id of selecionados) {
-      const produto = produtosAtivos.find((p) => p.id === id)
-      if (!produto) continue
-      const novoPreco = produto.precoVenda * (1 + ajustePercentual / 100)
-      if (novoPreco > 0) {
-        editarProduto({ ...produto, precoVenda: novoPreco })
-      }
-    }
-    exibirToast(
-      `Preços de ${selecionados.size} produto(s) ajustados em ${ajustePercentual > 0 ? '+' : ''}${ajustePercentual}%.`,
-      'sucesso'
+    // Monta os novos preços e dispara todas as edições, aguardando o resultado
+    // real de cada uma — em edição em massa uma falha parcial (rede/RLS) não pode
+    // ser mascarada por um toast de sucesso agregado.
+    const edicoes = [...selecionados]
+      .map((id) => produtosAtivos.find((p) => p.id === id))
+      .filter((p): p is NonNullable<typeof p> => Boolean(p))
+      .map((produto) => ({ produto, novoPreco: produto.precoVenda * (1 + ajustePercentual / 100) }))
+      .filter(({ novoPreco }) => novoPreco > 0)
+
+    const resultados = await Promise.allSettled(
+      edicoes.map(({ produto, novoPreco }) => editarProduto({ ...produto, precoVenda: novoPreco }))
     )
+    const falhas = resultados.filter((r) => r.status === 'rejected').length
+    const sucessos = resultados.length - falhas
+
+    if (falhas > 0) {
+      exibirToast(
+        `${sucessos} produto(s) ajustado(s); ${falhas} falhou(aram). Tente novamente.`,
+        sucessos > 0 ? 'aviso' : 'erro'
+      )
+    } else {
+      exibirToast(
+        `Preços de ${sucessos} produto(s) ajustados em ${ajustePercentual > 0 ? '+' : ''}${ajustePercentual}%.`,
+        'sucesso'
+      )
+    }
     setSelecionados(new Set())
     setAjustePercentual(0)
     setModoMassa(false)
@@ -360,6 +380,29 @@ export default function Precificacao() {
   const aoMudarMargemSimulador = useCallback((v: string) => {
     setMargemSimulador(parseFloat(v) || 0)
   }, [])
+
+  const opcoesProdutoSimulador = useMemo(
+    () => [
+      { valor: '', rotulo: '— nenhum —' },
+      ...produtosAtivos.map((p) => ({ valor: String(p.id), rotulo: p.nome })),
+    ],
+    [produtosAtivos]
+  )
+
+  const aoMudarProdutoSimulador = useCallback(
+    (v: string) => {
+      setProdutoSimuladorId(v)
+      // Selecionar "— nenhum —" não é erro nem exige zerar o custo: o campo de
+      // custo continua editável e a gestora pode ter digitado um valor manual
+      // que deve ser preservado — por isso mantemos custoSimulador como está.
+      if (!v) return
+      const produto = produtosAtivos.find((p) => String(p.id) === v)
+      if (produto) {
+        setCustoSimulador(produto.custoProducao)
+      }
+    },
+    [produtosAtivos]
+  )
 
   // -------------------------------------------------------------------------
   // Render
@@ -509,6 +552,13 @@ export default function Precificacao() {
           }}
         >
           {/* Entradas */}
+          <CampoSelecao
+            rotulo="Carregar custo de um produto"
+            nome="produto-simulador"
+            opcoes={opcoesProdutoSimulador}
+            valor={produtoSimuladorId}
+            aoMudar={aoMudarProdutoSimulador}
+          />
           <CampoMonetario
             rotulo="Custo de produção"
             nome="custo-simulador"

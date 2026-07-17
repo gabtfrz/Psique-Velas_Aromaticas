@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Modal } from '@/componentes/ui/Modal'
@@ -7,12 +7,19 @@ import { CampoSelecao } from '@/componentes/ui/CampoSelecao'
 import { CampoMonetario } from '@/componentes/ui/CampoMonetario'
 import { CampoTexto } from '@/componentes/ui/CampoTexto'
 import { Botao } from '@/componentes/ui/Botao'
+import { SecaoReceita } from '@/componentes/compartilhados/SecaoReceita'
 import { schemaProduto } from '@/utils/validadores'
 import type { EntradaProduto } from '@/utils/validadores'
-import { calcularMargem, calcularMarkup } from '@/utils/calculadores'
+import {
+  calcularMargem,
+  calcularMarkup,
+  calcularCustoInsumos,
+  calcularCustoComExtras,
+} from '@/utils/calculadores'
 import { formatarPercentual } from '@/utils/formatadores'
 import { LIMITE_DESCRICAO_CURTA, LIMITE_HISTORIA_VELA } from '@/constantes'
-import type { Produto, OpcaoSelecao } from '@/tipos'
+import { useInsumos } from '@/hooks/useInsumos'
+import type { Produto, OpcaoSelecao, ItemReceita } from '@/tipos'
 
 // ─── Opções de seleção ───────────────────────────────────────────────────────
 
@@ -68,6 +75,8 @@ function produtoParaEntrada(p: Produto): EntradaProduto {
     estoqueMinimo: p.estoqueMinimo,
     descricaoCurta: p.descricaoCurta,
     historiaVela: p.historiaVela,
+    percentualCustosExtras: p.percentualCustosExtras,
+    receita: p.receita,
   }
 }
 
@@ -91,6 +100,8 @@ const valoresIniciais: EntradaProduto = {
   estoqueMinimo: 5,
   descricaoCurta: '',
   historiaVela: '',
+  percentualCustosExtras: 0,
+  receita: [],
 }
 
 // ─── Estilo de seção ─────────────────────────────────────────────────────────
@@ -123,6 +134,18 @@ export function ModalNovoProduto({
   aoSalvar,
   produtoParaEditar,
 }: PropsModalNovoProduto) {
+  const { insumosOrdenados } = useInsumos()
+
+  // Fonte de verdade de "o custo foi editado à mão": enquanto for `false`, o custo de
+  // produção é auto-preenchido a partir da receita + % de extras a cada mudança; quando
+  // a gestora digita diretamente no campo, vira `true` e o cálculo automático para de
+  // sobrescrever o valor (só "Recalcular da receita" volta a preenchê-lo).
+  const [custoFoiEditadoManualmente, setCustoFoiEditadoManualmente] = useState(false)
+
+  // Texto local do campo de tags: não é reconstruído do array `tags` a cada tecla, para
+  // preservar exatamente o que a gestora está digitando (vírgulas e espaços em digitação).
+  const [tagsTexto, setTagsTexto] = useState('')
+
   const {
     handleSubmit,
     reset,
@@ -137,13 +160,25 @@ export function ModalNovoProduto({
   useEffect(() => {
     if (aberto) {
       reset(produtoParaEditar ? produtoParaEntrada(produtoParaEditar) : valoresIniciais)
+      setCustoFoiEditadoManualmente(false)
+      setTagsTexto((produtoParaEditar?.tags ?? valoresIniciais.tags).join(', '))
     }
   }, [aberto, produtoParaEditar, reset])
+
+  const aoMudarTagsTexto = useCallback(
+    (v: string) => {
+      setTagsTexto(v)
+      setValue('tags', v.split(',').map((t) => t.trim()).filter(Boolean), { shouldValidate: true })
+    },
+    [setValue]
+  )
 
   const custoWatched = watch('custoProducao') ?? 0
   const precoWatched = watch('precoVenda') ?? 0
   const descricaoCurtaWatched = watch('descricaoCurta') ?? ''
   const historiaVelaWatched = watch('historiaVela') ?? ''
+  const receitaWatched = watch('receita') ?? []
+  const percentualCustosExtrasWatched = watch('percentualCustosExtras') ?? 0
 
   const margemCalculada = useMemo(
     () => calcularMargem(custoWatched, precoWatched),
@@ -155,6 +190,57 @@ export function ModalNovoProduto({
     [custoWatched, precoWatched]
   )
 
+  const custoCalculadoDaReceita = useMemo(() => {
+    const custoInsumos = calcularCustoInsumos(receitaWatched, insumosOrdenados)
+    return calcularCustoComExtras(custoInsumos, percentualCustosExtrasWatched)
+  }, [receitaWatched, insumosOrdenados, percentualCustosExtrasWatched])
+
+  const aoMudarReceita = useCallback(
+    (novaReceita: ItemReceita[]) => {
+      setValue('receita', novaReceita, { shouldValidate: true })
+      // Só recalcula automaticamente o custo enquanto a gestora não tiver assumido o
+      // controle manual do campo — preserva o valor editado à mão.
+      if (custoFoiEditadoManualmente) {
+        return
+      }
+      const custoInsumos = calcularCustoInsumos(novaReceita, insumosOrdenados)
+      setValue(
+        'custoProducao',
+        calcularCustoComExtras(custoInsumos, percentualCustosExtrasWatched),
+        { shouldValidate: true }
+      )
+    },
+    [setValue, insumosOrdenados, percentualCustosExtrasWatched, custoFoiEditadoManualmente]
+  )
+
+  const aoMudarPercentualCustosExtras = useCallback(
+    (v: string) => {
+      const percentual = Number(v)
+      setValue('percentualCustosExtras', percentual, { shouldValidate: true })
+      if (custoFoiEditadoManualmente) {
+        return
+      }
+      const custoInsumos = calcularCustoInsumos(receitaWatched, insumosOrdenados)
+      setValue('custoProducao', calcularCustoComExtras(custoInsumos, percentual), {
+        shouldValidate: true,
+      })
+    },
+    [setValue, receitaWatched, insumosOrdenados, custoFoiEditadoManualmente]
+  )
+
+  const aoMudarCustoProducao = useCallback(
+    (v: number) => {
+      setValue('custoProducao', v, { shouldValidate: true })
+      setCustoFoiEditadoManualmente(true)
+    },
+    [setValue]
+  )
+
+  const aoRecalcularCusto = useCallback(() => {
+    setValue('custoProducao', custoCalculadoDaReceita, { shouldValidate: true })
+    setCustoFoiEditadoManualmente(false)
+  }, [setValue, custoCalculadoDaReceita])
+
   function onSubmit(dados: EntradaProduto) {
     aoSalvar(dados)
   }
@@ -162,7 +248,7 @@ export function ModalNovoProduto({
   const titulo = produtoParaEditar ? 'Editar vela' : 'Nova vela'
 
   return (
-    <Modal aberto={aberto} aoFechar={aoFechar} titulo={titulo} largura="lg">
+    <Modal aberto={aberto} aoFechar={aoFechar} titulo={titulo} largura="3xl">
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
@@ -202,8 +288,8 @@ export function ModalNovoProduto({
               <Campo
                 rotulo="Tags (separadas por vírgula)"
                 nome="tags"
-                valor={(watch('tags') ?? []).join(', ')}
-                aoMudar={(v) => setValue('tags', v.split(',').map((t) => t.trim()).filter(Boolean), { shouldValidate: true })}
+                valor={tagsTexto}
+                aoMudar={aoMudarTagsTexto}
                 erro={errors.tags?.message}
                 placeholder="renovação, rituais..."
               />
@@ -213,7 +299,7 @@ export function ModalNovoProduto({
           {/* Seção 2 — Técnico */}
           <section>
             <p style={estiloTituloSecao}>Técnico</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
               <CampoSelecao
                 rotulo="Tipo de cera"
                 nome="tipoCera"
@@ -340,17 +426,57 @@ export function ModalNovoProduto({
             </div>
           </section>
 
-          {/* Seção 4 — Comercial */}
+          {/* Seção 4 — Receita e custo */}
+          <section>
+            <p style={estiloTituloSecao}>Receita e custo</p>
+            <SecaoReceita
+              receita={receitaWatched}
+              insumos={insumosOrdenados}
+              aoMudarReceita={aoMudarReceita}
+            />
+          </section>
+
+          {/* Seção 5 — Comercial */}
           <section>
             <p style={estiloTituloSecao}>Comercial</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <CampoMonetario
-                rotulo="Custo de produção"
-                nome="custoProducao"
-                valor={custoWatched}
-                aoMudar={(v) => setValue('custoProducao', v, { shouldValidate: true })}
-                erro={errors.custoProducao?.message}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, alignItems: 'start' }}>
+              <Campo
+                rotulo="Custos extras (%)"
+                nome="percentualCustosExtras"
+                tipo="number"
+                valor={String(percentualCustosExtrasWatched)}
+                aoMudar={aoMudarPercentualCustosExtras}
+                erro={errors.percentualCustosExtras?.message}
               />
+              <div>
+                <CampoMonetario
+                  rotulo="Custo de produção"
+                  nome="custoProducao"
+                  valor={custoWatched}
+                  aoMudar={aoMudarCustoProducao}
+                  erro={errors.custoProducao?.message}
+                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                  <p style={{ margin: 0, fontSize: 12, color: 'var(--cor-muted)' }}>
+                    {custoFoiEditadoManualmente ? 'valor editado manualmente' : 'calculado da receita'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={aoRecalcularCusto}
+                    style={{
+                      fontSize: 12,
+                      color: 'var(--cor-musgo)',
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      cursor: 'pointer',
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    Recalcular da receita
+                  </button>
+                </div>
+              </div>
               <CampoMonetario
                 rotulo="Preço de venda"
                 nome="precoVenda"

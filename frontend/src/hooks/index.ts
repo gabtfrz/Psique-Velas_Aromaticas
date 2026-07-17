@@ -4,6 +4,8 @@
 export { useArmazenamentoLocal } from './useArmazenamentoLocal'
 export { useAutenticacao } from './useAutenticacao'
 export { useClientes } from './useClientes'
+export { useInsumos } from './useInsumos'
+export { usePerfil } from './usePerfil'
 export { useProdutos } from './useProdutos'
 export { useToast } from './useToast'
 export { useVendas } from './useVendas'

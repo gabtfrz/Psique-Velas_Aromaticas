@@ -1,4 +1,4 @@
-import type { ItemVenda, Produto, Venda } from '@/tipos'
+import type { Insumo, ItemReceita, ItemVenda, Produto, Venda } from '@/tipos'
 import { MARGEM_ALERTA_BAIXA, MARGEM_ALERTA_MEDIA } from '@/constantes'
 
 export function calcularMargem(custo: number, preco: number): number {
@@ -51,6 +51,33 @@ export function classificarMargem(margem: number): 'baixa' | 'media' | 'boa' {
   if (margem < MARGEM_ALERTA_BAIXA) return 'baixa'
   if (margem < MARGEM_ALERTA_MEDIA) return 'media'
   return 'boa'
+}
+
+// Soma o custo de cada item da receita (quantidade × preço unitário do insumo).
+// Itens cujo insumoId não é encontrado na lista de insumos são ignorados (contribuem 0).
+export function calcularCustoInsumos(receita: ItemReceita[], insumos: Insumo[]): number {
+  return receita.reduce((acc, item) => {
+    const insumo = insumos.find((i) => i.id === item.insumoId)
+    if (!insumo) return acc
+    return acc + item.quantidade * insumo.precoUnitario
+  }, 0)
+}
+
+// Aplica o percentual de custos extras (mão de obra, embalagem etc.) sobre o custo de insumos.
+export function calcularCustoComExtras(custoInsumos: number, percentualExtras: number): number {
+  return custoInsumos * (1 + percentualExtras / 100)
+}
+
+const CASAS_DECIMAIS_PRECO_UNITARIO = 4
+const FATOR_ARREDONDAMENTO_PRECO_UNITARIO = 10 ** CASAS_DECIMAIS_PRECO_UNITARIO
+
+// Calcula o preço unitário do insumo a partir do preço e da quantidade total da
+// embalagem (ex.: pote de cera 1000 g por R$ 50 → R$ 0,05/g). Quantidade zero,
+// negativa ou inválida (NaN) retorna 0 em vez de Infinity/NaN.
+export function calcularPrecoUnitario(precoEmbalagem: number, quantidadeEmbalagem: number): number {
+  if (!Number.isFinite(quantidadeEmbalagem) || quantidadeEmbalagem <= 0) return 0
+  if (!Number.isFinite(precoEmbalagem)) return 0
+  return Math.round((precoEmbalagem / quantidadeEmbalagem) * FATOR_ARREDONDAMENTO_PRECO_UNITARIO) / FATOR_ARREDONDAMENTO_PRECO_UNITARIO
 }
 
 // Testes manuais:

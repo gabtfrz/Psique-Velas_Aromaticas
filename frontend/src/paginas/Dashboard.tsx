@@ -10,13 +10,14 @@ import { GraficoBarra } from '@/componentes/graficos/GraficoBarra'
 import { Emblema } from '@/componentes/ui/Emblema'
 import { Icone } from '@/componentes/ui/Icone'
 import { formatarMoeda, formatarPercentual, formatarData } from '@/utils/formatadores'
-import { dadosFaturamentoDiario } from '@/dados/dadosMock'
+import { filtrarFaturamentoUltimosDias } from '@/utils/vendas'
+import { DIAS_GRAFICO_LINHA } from '@/constantes'
 import type { StatusPagamento, CanalVenda } from '@/tipos'
 
 // ─── Tipos auxiliares para as tabelas ───────────────────────────────────────
 
 interface LinhaVenda extends Record<string, unknown> {
-  id: string
+  id: number
   data: string
   cliente: string
   produto: string
@@ -26,7 +27,7 @@ interface LinhaVenda extends Record<string, unknown> {
 }
 
 interface LinhaEstoque extends Record<string, unknown> {
-  id: string
+  id: number
   nome: string
   estoqueAtual: number
   estoqueMinimo: number
@@ -46,7 +47,8 @@ const ROTULOS_CANAL: Record<CanalVenda, string> = {
 
 export default function Dashboard() {
   const { produtos, produtosComEstoqueBaixo, margemMedia } = useProdutos()
-  const { vendas, vendasDoMes, calcularFaturamentoPeriodo, calcularTicketMedio } = useVendas()
+  const { vendas, vendasDoMes, calcularFaturamentoPeriodo, calcularTicketMedio, agruparFaturamentoPorDia } =
+    useVendas()
   const { buscarClientePorId } = useClientes()
 
   // KPIs
@@ -71,9 +73,15 @@ export default function Dashboard() {
 
   const ticketMedio = useMemo(() => calcularTicketMedio(), [calcularTicketMedio])
 
+  // Faturamento diário dos últimos 30 dias para o gráfico de linha
+  const faturamentoDiario = useMemo(
+    () => filtrarFaturamentoUltimosDias(agruparFaturamentoPorDia(), DIAS_GRAFICO_LINHA),
+    [agruparFaturamentoPorDia]
+  )
+
   // Top 5 produtos mais vendidos por quantidade
   const top5Produtos = useMemo(() => {
-    const mapa = new Map<string, { nome: string; quantidade: number }>()
+    const mapa = new Map<number, { nome: string; quantidade: number }>()
     vendas.forEach((venda) => {
       venda.itens.forEach((item) => {
         const atual = mapa.get(item.produtoId)
@@ -171,7 +179,7 @@ export default function Dashboard() {
       {
         chave: 'id',
         titulo: 'Alerta',
-        renderizar: (_item: LinhaEstoque) => <Emblema tipo="baixa" tamanho="sm" />,
+        renderizar: () => <Emblema tipo="baixa" tamanho="sm" />,
       },
     ],
     []
@@ -243,7 +251,7 @@ export default function Dashboard() {
           titulo="Faturamento — últimos 30 dias"
           subtitulo="Receita diária acumulada"
         >
-          <GraficoLinha dados={dadosFaturamentoDiario} altura={240} />
+          <GraficoLinha dados={faturamentoDiario} altura={240} />
         </CartaoGrafico>
 
         <CartaoGrafico

@@ -130,7 +130,7 @@ export default function Vendas() {
   const opcoesClientes = useMemo<OpcaoSelecao[]>(
     () => [
       { valor: '', rotulo: 'Venda avulsa' },
-      ...clientes.map((c) => ({ valor: c.id, rotulo: c.nomeCompleto })),
+      ...clientes.map((c) => ({ valor: String(c.id), rotulo: c.nomeCompleto })),
     ],
     [clientes]
   )
@@ -203,7 +203,7 @@ export default function Vendas() {
     setBuscaProduto('')
   }, [])
 
-  const handleAumentarQtd = useCallback((produtoId: string) => {
+  const handleAumentarQtd = useCallback((produtoId: number) => {
     setCarrinho((anterior) =>
       anterior.map((i) =>
         i.produtoId === produtoId
@@ -213,7 +213,7 @@ export default function Vendas() {
     )
   }, [])
 
-  const handleDiminuirQtd = useCallback((produtoId: string) => {
+  const handleDiminuirQtd = useCallback((produtoId: number) => {
     setCarrinho((anterior) =>
       anterior.map((i) =>
         i.produtoId === produtoId && i.quantidade > 1
@@ -223,7 +223,7 @@ export default function Vendas() {
     )
   }, [])
 
-  const handleRemoverDoCarrinho = useCallback((produtoId: string) => {
+  const handleRemoverDoCarrinho = useCallback((produtoId: number) => {
     setCarrinho((anterior) => anterior.filter((i) => i.produtoId !== produtoId))
   }, [])
 
@@ -243,22 +243,31 @@ export default function Vendas() {
   const handleSetDesconto = useCallback((v: number) => setDesconto(v), [])
   const handleSetBuscaProduto = useCallback((v: string) => setBuscaProduto(v), [])
 
-  const handleRegistrarVenda = useCallback(() => {
+  const handleRegistrarVenda = useCallback(async () => {
     if (carrinho.length === 0) {
       exibirToast('Adicione pelo menos um produto ao carrinho.', 'erro')
       return
     }
-    registrarVenda({
-      clienteId: clienteId || undefined,
-      itens: carrinho,
-      desconto,
-      canalVenda,
-      formaPagamento,
-      statusPagamento: pagoPago ? 'pago' : 'pendente',
-      tipoEntrega,
-      statusEntrega: statusEntregaVenda,
-      observacoes: observacoes || undefined,
-    })
+    try {
+      // A baixa de estoque é atômica no banco (RPC registrar_venda): se o estoque
+      // for insuficiente, a chamada rejeita e NADA é gravado — por isso só limpamos
+      // o carrinho e sinalizamos sucesso depois que a Promise resolve.
+      await registrarVenda({
+        clienteId: clienteId ? Number(clienteId) : undefined,
+        itens: carrinho,
+        desconto,
+        canalVenda,
+        formaPagamento,
+        statusPagamento: pagoPago ? 'pago' : 'pendente',
+        tipoEntrega,
+        statusEntrega: statusEntregaVenda,
+        observacoes: observacoes || undefined,
+      })
+    } catch (erro) {
+      const mensagem = erro instanceof Error ? erro.message : 'Não foi possível registrar a venda.'
+      exibirToast(mensagem, 'erro')
+      return
+    }
     // Limpar carrinho e formulário
     setCarrinho([])
     setDesconto(0)
@@ -315,9 +324,13 @@ export default function Vendas() {
   }, [])
 
   const handleSalvarStatus = useCallback(
-    (id: string, sp: StatusPagamento, se: StatusEntrega) => {
-      atualizarStatusVenda(id, { statusPagamento: sp, statusEntrega: se })
-      exibirToast('Status atualizado!', 'sucesso')
+    async (id: number, sp: StatusPagamento, se: StatusEntrega) => {
+      try {
+        await atualizarStatusVenda(id, { statusPagamento: sp, statusEntrega: se })
+        exibirToast('Status atualizado!', 'sucesso')
+      } catch {
+        exibirToast('Não foi possível atualizar o status.', 'erro')
+      }
     },
     [atualizarStatusVenda, exibirToast]
   )

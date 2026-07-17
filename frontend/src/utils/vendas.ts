@@ -1,4 +1,4 @@
-import type { ItemVenda, Venda, CanalVenda, StatusPagamento } from '@/tipos'
+import type { ItemVenda, Venda, CanalVenda, StatusPagamento, FaturamentoDiario } from '@/tipos'
 
 // ─── Filtros aceitos por filtrarVendas ────────────────────────────────────────
 
@@ -48,4 +48,14 @@ export function filtrarVendas(vendas: Venda[], filtros: FiltrosVenda): Venda[] {
 
     return true
   })
+}
+
+/** Filtra os pontos de faturamento diário para os últimos N dias a partir de hoje. */
+export function filtrarFaturamentoUltimosDias(
+  dados: FaturamentoDiario[],
+  dias: number
+): FaturamentoDiario[] {
+  const limite = new Date()
+  limite.setDate(limite.getDate() - dias)
+  return dados.filter((ponto) => ponto.data >= limite)
 }
