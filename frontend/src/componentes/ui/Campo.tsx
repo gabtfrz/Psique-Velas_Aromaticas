@@ -71,25 +71,30 @@ export function Campo({
           .join(' ')}
       />
 
-      <div className="flex justify-between items-start min-h-[1.25rem]">
-        {erro ? (
-          <p id={idErro} role="alert" className="text-xs text-perigo font-corpo">
-            {erro}
-          </p>
-        ) : (
-          <span />
-        )}
-        {contador && (
-          <span
-            className="text-xs text-muted font-corpo ml-auto"
-            aria-live="polite"
-            aria-label={`${comprimento} caracteres${maxCaracteres ? ` de ${maxCaracteres}` : ''}`}
-          >
-            {comprimento}
-            {maxCaracteres ? `/${maxCaracteres}` : ''}
-          </span>
-        )}
-      </div>
+      {/* Rodapé (erro/contador) renderizado só quando há conteúdo — igual ao
+          CampoSelecao — para não reservar espaço vazio que desalinha o campo em
+          layouts lado a lado (ex.: seção Receita e custo). */}
+      {(erro || contador) && (
+        <div className="flex justify-between items-start">
+          {erro ? (
+            <p id={idErro} role="alert" className="text-xs text-perigo font-corpo">
+              {erro}
+            </p>
+          ) : (
+            <span />
+          )}
+          {contador && (
+            <span
+              className="text-xs text-muted font-corpo ml-auto"
+              aria-live="polite"
+              aria-label={`${comprimento} caracteres${maxCaracteres ? ` de ${maxCaracteres}` : ''}`}
+            >
+              {comprimento}
+              {maxCaracteres ? `/${maxCaracteres}` : ''}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   )
 }

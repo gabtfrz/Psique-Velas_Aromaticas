@@ -53,19 +53,29 @@ export function classificarMargem(margem: number): 'baixa' | 'media' | 'boa' {
   return 'boa'
 }
 
+// Custo de produção arredondado a no máximo 3 casas decimais — evita a cauda de
+// ponto flutuante (ex.: 13.575000000000001) no valor exibido/persistido.
+const CASAS_DECIMAIS_CUSTO = 3
+const FATOR_ARREDONDAMENTO_CUSTO = 10 ** CASAS_DECIMAIS_CUSTO
+
+function arredondarCusto(valor: number): number {
+  return Math.round(valor * FATOR_ARREDONDAMENTO_CUSTO) / FATOR_ARREDONDAMENTO_CUSTO
+}
+
 // Soma o custo de cada item da receita (quantidade × preço unitário do insumo).
 // Itens cujo insumoId não é encontrado na lista de insumos são ignorados (contribuem 0).
 export function calcularCustoInsumos(receita: ItemReceita[], insumos: Insumo[]): number {
-  return receita.reduce((acc, item) => {
+  const total = receita.reduce((acc, item) => {
     const insumo = insumos.find((i) => i.id === item.insumoId)
     if (!insumo) return acc
     return acc + item.quantidade * insumo.precoUnitario
   }, 0)
+  return arredondarCusto(total)
 }
 
 // Aplica o percentual de custos extras (mão de obra, embalagem etc.) sobre o custo de insumos.
 export function calcularCustoComExtras(custoInsumos: number, percentualExtras: number): number {
-  return custoInsumos * (1 + percentualExtras / 100)
+  return arredondarCusto(custoInsumos * (1 + percentualExtras / 100))
 }
 
 const CASAS_DECIMAIS_PRECO_UNITARIO = 4
